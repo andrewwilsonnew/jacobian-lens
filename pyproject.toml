@@ -1,0 +1,17 @@
+[project]
+name = "gemma-jacobian-lens"
+version = "0.1.0"
+description = "Anthropic's Jacobian lens (jlens) on Gemma 3 4B, on a MacBook (MPS)"
+requires-python = ">=3.12"
+dependencies = [
+    "accelerate>=1.16.0",
+    "datasets>=5.2.0",
+    "huggingface-hub>=2.4.0",
+    "jlens",
+    "numpy>=2.5.5",
+    "torch>=2.15.0",
+    "transformers>=5.5",
+]
+
+[tool.uv.sources]
+jlens = { git = "https://github.com/anthropics/jacobian-lens" }
