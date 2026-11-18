@@ -1,5 +1,5 @@
 [project]
-name = "gemma-jacobian-lens"
+name = "jacobian-lens"
 version = "0.1.0"
 description = "Anthropic's Jacobian lens (jlens) on Gemma 3 4B, on a MacBook (MPS)"
 requires-python = ">=3.12"

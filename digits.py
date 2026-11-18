@@ -2,26 +2,30 @@
 
     uv run python digits.py
     uv run python digits.py "(23 + 17)*2 + 17 =" --generate 80 --stride 1
+    uv run python digits.py --model qwen3.5-4b
 
 Generates the model's answer, then for every number written after an "=" reads
-the J-lens at the position that produces each digit (Gemma tokenises numbers one
-digit at a time) and prints the digit's full-vocab rank (0 = top) per layer.
+the J-lens at the position that produces each digit (Gemma and Qwen both tokenise
+numbers one digit at a time) and prints the digit's full-vocab rank (0 = top) per layer.
 """
 
 import argparse
 
 import jlens
 
-from common import generate, load_lens, load_model
+from common import add_model_arg, generate, load_lens, load_model
 
 DEFAULT_PROMPT = "(23 + 17)*2 + 17 ="
 
 
 def result_digit_positions(strs: list[str]) -> list[int]:
-    """Positions whose next token is a digit of a number following ``=``."""
+    """Positions whose next token is a digit of a number following ``=``.
+
+    Matches ``= 40`` and ``= (40)``: the token after ``=`` is ``" "`` or ``" ("``.
+    """
     positions = []
     for i in range(1, len(strs) - 1):
-        if strs[i - 1].strip() != "=" or strs[i] != " ":
+        if strs[i - 1].strip() != "=" or strs[i] not in {" ", " ("}:
             continue
         j = i
         while j + 1 < len(strs) and strs[j + 1].isdigit():
@@ -33,14 +37,15 @@ def result_digit_positions(strs: list[str]) -> list[int]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("prompt", nargs="?", default=DEFAULT_PROMPT)
+    add_model_arg(parser)
     parser.add_argument("--lens", help="local lens .pt (default: Neuronpedia pre-fit)")
     parser.add_argument("--generate", type=int, default=80, help="answer tokens to generate")
     parser.add_argument("--stride", type=int, default=3, help="read every Nth layer")
     args = parser.parse_args()
 
     jlens.configure_logging()
-    model, tokenizer, hf_model = load_model()
-    lens = load_lens(args.lens)
+    model, tokenizer, hf_model = load_model(args.model)
+    lens = load_lens(args.model, args.lens)
 
     answer = generate(hf_model, tokenizer, args.prompt, args.generate)
     text = args.prompt + answer

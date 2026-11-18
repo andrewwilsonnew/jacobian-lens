@@ -19,13 +19,12 @@ import gzip
 import json
 
 import numpy as np
-import transformers
 
-from common import MODEL, slice_dir
+from common import add_model_arg, load_tokenizer, slice_dir
 
 
-def load_page(prompt: str) -> tuple[dict, dict]:
-    path = slice_dir(prompt) / "index.html"
+def load_page(model: str, prompt: str) -> tuple[dict, dict]:
+    path = slice_dir(model, prompt) / "index.html"
     html = path.read_text()
     bootstrap, _ = json.JSONDecoder().raw_decode(html[html.index('{"mode"') :])
     if bootstrap["mode"] != "embed":
@@ -36,13 +35,14 @@ def load_page(prompt: str) -> tuple[dict, dict]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("prompts", nargs="+", help="prompts whose pages to compare")
+    add_model_arg(parser)
     parser.add_argument("--pin", action="append", required=True, help="word (repeatable)")
     args = parser.parse_args()
 
-    tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL)
+    tokenizer = load_tokenizer(args.model)
 
     for prompt in args.prompts:
-        meta, files = load_page(prompt)
+        meta, files = load_page(args.model, prompt)
         strs, layers, seq_len = meta["ctx_strs"], meta["layers"], meta["T"]
         answer_start = len(tokenizer(prompt).input_ids)
         print(f"\n{prompt!r}: {seq_len - answer_start} answer positions")

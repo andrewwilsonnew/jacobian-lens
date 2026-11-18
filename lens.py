@@ -1,11 +1,12 @@
-"""Apply a Jacobian lens to Gemma 3 and compare it with the plain logit lens.
+"""Apply a Jacobian lens to a model and compare it with the plain logit lens.
 
     uv run python lens.py "Fact: The currency used in the country shaped like a boot is"
     uv run python lens.py --page "The capital of the state containing Dallas is"
     uv run python lens.py --example ascii-face --page
+    uv run python lens.py --model qwen3.5-4b --page "(23 + 17)*2 + 17 ="
     uv run python lens.py --page --pin pink --pin elephant "dont think about a pink elephant, what is 2 + 2"
 
---page writes an interactive layer x position slice view to slices/<slug>/index.html,
+--page writes an interactive layer x position slice view to slices/<model>/<slug>/index.html,
 covering the prompt plus --generate N greedily generated answer tokens.
 """
 
@@ -16,7 +17,7 @@ import jlens
 from jlens.examples import EXAMPLES, resolve_prompt
 from jlens.vis import build_page, compute_slice
 
-from common import generate, load_lens, load_model, slice_dir
+from common import MODELS, add_model_arg, generate, load_lens, load_model, slice_dir
 
 DEFAULT_PROMPT = "Fact: The currency used in the country shaped like a boot is"
 
@@ -41,6 +42,7 @@ def report_pins(slice_data, pins: dict[str, int], answer_start: int) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("prompt", nargs="?", default=None)
+    add_model_arg(parser)
     parser.add_argument("--lens", help="local lens .pt (default: Neuronpedia pre-fit)")
     parser.add_argument("--position", type=int, default=-1, help="token position to read")
     parser.add_argument("--example", choices=[e.slug for e in EXAMPLES])
@@ -50,8 +52,8 @@ def main() -> None:
     args = parser.parse_args()
 
     jlens.configure_logging()
-    model, tokenizer, hf_model = load_model()
-    lens = load_lens(args.lens)
+    model, tokenizer, hf_model = load_model(args.model)
+    lens = load_lens(args.model, args.lens)
 
     example = next((e for e in EXAMPLES if e.slug == args.example), None)
     if example:
@@ -78,7 +80,11 @@ def main() -> None:
     print(f"model output:    {top5(model_logits[0])}")
 
     if args.page:
-        out_dir = Path("slices") / example.slug if example else slice_dir(prompt)
+        out_dir = (
+            Path("slices") / args.model / example.slug
+            if example
+            else slice_dir(args.model, prompt)
+        )
         out_dir.mkdir(parents=True, exist_ok=True)
         answer = generate(hf_model, tokenizer, prompt, args.generate) if args.generate else ""
         if answer:
@@ -94,7 +100,7 @@ def main() -> None:
         page, _, _ = build_page(
             slice_data,
             text,
-            title=example.section if example else "Gemma 3 4B J-lens",
+            title=example.section if example else f"{MODELS[args.model].title} J-lens",
             description=example.description if example else text,
         )
         (out_dir / "index.html").write_text(page)
